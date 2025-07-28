@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from supabase_mcp.logger import logger
 
 SUPPORTED_REGIONS = Literal[
+    "local",  # Special value for local instances
     "us-west-1",  # West US (North California)
     "us-east-1",  # East US (North Virginia)
     "us-east-2",  # East US (Ohio)
@@ -112,12 +113,25 @@ class Settings(BaseSettings):
     @classmethod
     def validate_region(cls, v: str, info: ValidationInfo) -> str:
         """Validate that the region is supported by Supabase."""
-        # Get the project_ref from the values
         values = info.data
         project_ref = values.get("supabase_project_ref", "")
 
+        # Automatically set to "local" for local instances
+        if project_ref.startswith("127.0.0.1"):
+            # Return early without further validation for local instances
+            return "local"
+            
+        # Handle explicit "local" region setting
+        if v == "local":
+            logger.warning(
+                "Using 'local' region with non-local project ref may cause connection issues. "
+                "The 'local' region should only be used with 127.0.0.1 project refs."
+            )
+            # Return early without further validation
+            return v
+
         # If this is a remote project and region is the default
-        if not project_ref.startswith("127.0.0.1") and v == "us-east-1" and "SUPABASE_REGION" not in os.environ:
+        if v == "us-east-1" and "SUPABASE_REGION" not in os.environ:
             logger.warning(
                 "You're connecting to a remote Supabase project but haven't specified a region. "
                 "Using default 'us-east-1', which may cause 'Tenant or user not found' errors if incorrect. "

@@ -18,7 +18,6 @@ class ToolRegistry:
         """Register all tools with the MCP server"""
         mcp = self.mcp
         services_container = self.services_container
-
         tool_manager = services_container.tool_manager
         feature_manager = services_container.feature_manager
 

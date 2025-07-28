@@ -16,6 +16,10 @@ dependencies = [
     "pyyaml>=6.0.2",
     "supabase>=2.13.0",
     "tenacity>=9.0.0",
+    "mcp>=1.5.0",  # Corrected MCP SDK dependency
+    "fastapi>=0.110.0",  # Required for SSE transport
+    "uvicorn[standard]>=0.29.0",  # Required for SSE transport
+    "sse-starlette>=1.7.2",  # Required for SSE transport
 ]
 authors = [
     {name = "Alexander Zuev", email = "azuev@outlook.com"}
@@ -37,8 +41,6 @@ Repository = "https://github.com/alexander-zuev/supabase-mcp-server.git"
 Changelog = "https://github.com/alexander-zuev/supabase-mcp-server/blob/main/CHANGELOG.MD"
 Documentation = "https://github.com/alexander-zuev/supabase-mcp-server#readme"
 
-
-
 [tool.hatch.build.targets.wheel]
 packages = ["supabase_mcp"]
 
@@ -55,7 +57,6 @@ version-file = "supabase_mcp/_version.py"
 [project.scripts]
 supabase-mcp-server = "supabase_mcp.main:run_server"
 supabase-mcp-inspector = "supabase_mcp.main:run_inspector"
-
 
 # Configure PyPI publishing
 [[tool.uv.index]]
@@ -82,7 +83,6 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
 
 [tool.mypy]
 python_version = "3.12"
@@ -115,7 +115,6 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --no-header --tb=short"
 
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "module"
@@ -136,7 +135,6 @@ dev = [
     "ruff>=0.9.9",
     "sqlfluff>=3.3.1",
 ]
-
 
 [tool.sqlfluff.core]
 dialect = "postgres"

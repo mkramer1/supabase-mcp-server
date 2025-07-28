@@ -122,17 +122,17 @@ class PostgresClient:
         """
         encoded_password = urllib.parse.quote_plus(self.db_password)
 
-        if self.project_ref.startswith("127.0.0.1"):
-            # Local development
-            connection_string = f"postgresql://postgres:{encoded_password}@{self.project_ref}/postgres"
-            return connection_string
+        # Handle local region connection
+        if self.db_region == "local":
+            # Connect using the pooler with the tenant ID format
+            # Format: postgresql://postgres.supabase:[password]@127.0.0.1:54322/postgres
+            return f"postgresql://postgres.supabase:{encoded_password}@127.0.0.1:54322/postgres?sslmode=disable"
 
         # Production Supabase - via transaction pooler
-        connection_string = (
+        return (
             f"postgresql://postgres.{self.project_ref}:{encoded_password}"
-            f"@aws-0-{self._settings.supabase_region}.pooler.supabase.com:6543/postgres"
+            f"@aws-0-{self.db_region}.pooler.supabase.com:6543/postgres"
         )
-        return connection_string
 
     @retry(
         retry=retry_if_exception_type(
@@ -179,17 +179,32 @@ class PostgresClient:
         except asyncpg.PostgresError as e:
             # Extract connection details for better error reporting
             host_part = self.db_url.split("@")[1].split("/")[0] if "@" in self.db_url else "unknown"
+            is_local = self.project_ref.startswith("127.0.0.1")
 
-            # Check specifically for the "Tenant or user not found" error which is often caused by region mismatch
+            # Check specifically for the "Tenant or user not found" error
             if "Tenant or user not found" in str(e):
-                error_message = (
-                    "CONNECTION ERROR: Region mismatch detected!\n\n"
-                    f"Could not connect to Supabase project '{self.project_ref}'.\n\n"
-                    "This error typically occurs when your SUPABASE_REGION setting doesn't match your project's actual region.\n"
-                    f"Your configuration is using region: '{self.db_region}' (default: us-east-1)\n\n"
-                    "ACTION REQUIRED: Please set the correct SUPABASE_REGION in your MCP server configuration.\n"
-                    "You can find your project's region in the Supabase dashboard under Project Settings."
-                )
+                if is_local:
+                    # For local connections, this is likely a pooler configuration issue
+                    error_message = (
+                        "CONNECTION ERROR: Local Supabase pooler configuration issue!\n\n"
+                        f"Could not connect to local Supabase project '{self.project_ref}'.\n\n"
+                        "This error typically occurs when the local Supavisor pooler is not properly configured.\n"
+                        "The pooler may be using default placeholder values like 'your-tenant-id'.\n\n"
+                        "Please check:\n"
+                        "1. Your local Supabase docker setup is properly configured\n"
+                        "2. The POOLER_TENANT_ID in your docker .env file is properly set\n"
+                        "3. You can try connecting directly to the database container instead of through the pooler\n"
+                    )
+                else:
+                    # For remote connections, this is likely a region mismatch
+                    error_message = (
+                        "CONNECTION ERROR: Region mismatch detected!\n\n"
+                        f"Could not connect to Supabase project '{self.project_ref}'.\n\n"
+                        "This error typically occurs when your SUPABASE_REGION setting doesn't match your project's actual region.\n"
+                        f"Your configuration is using region: '{self.db_region}' (default: us-east-1)\n\n"
+                        "ACTION REQUIRED: Please set the correct SUPABASE_REGION in your MCP server configuration.\n"
+                        "You can find your project's region in the Supabase dashboard under Project Settings."
+                    )
             else:
                 error_message = (
                     f"Could not connect to database: {e}\n"

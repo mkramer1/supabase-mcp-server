@@ -34,7 +34,8 @@
 </p>
 
 ## ✨ Key features
-- 💻 Compatible with Cursor, Windsurf, Cline and other MCP clients supporting `stdio` protocol
+- 💻 **Dual Transport Support**: Compatible with both stdio and SSE transport protocols
+- 🐳 **Docker Ready**: Containerized deployment with Docker Compose support
 - 🔐 Control read-only and read-write modes of SQL query execution
 - 🔍 Runtime SQL query validation with risk level assessment
 - 🛡️ Three-tier safety system for SQL operations: safe, write, and destructive
@@ -45,12 +46,31 @@
 - 🔨 Pre-built tools to help Cursor & Windsurf work with MCP more effectively
 - 📦 Dead-simple install & setup via package manager (uv, pipx, etc.)
 
+## Architecture Overview
+
+The server now supports two transport modes:
+
+```mermaid
+graph TD
+    A[MCP Client] -->|stdio| B[Supabase MCP Server]
+    A -->|SSE| C[Supabase MCP Server<br/>Docker Container]
+    B --> D[PostgreSQL Database]
+    C --> D
+    C --> E[Supabase Management API]
+    C --> F[Supabase Auth Service]
+```
+
+### Transport Modes
+
+1. **stdio (Standard)**: Traditional MCP transport for local development
+2. **SSE (Server-Sent Events)**: HTTP-based transport for containerized deployments
 
 ## Getting Started
 
 ### Prerequisites
 Installing the server requires the following on your system:
 - Python 3.12+
+- Docker & Docker Compose (for SSE mode)
 
 If you plan to install via `uv`, ensure it's [installed](https://docs.astral.sh/uv/getting-started/installation/#__tabbed_1_1).
 
@@ -70,6 +90,8 @@ brew install postgresql@16
 
 ### Step 1. Installation
 
+#### Option A: Package Installation (stdio mode)
+
 Since v0.2.0 I introduced support for package installation. You can use your favorite Python package manager to install the server via:
 
 ```bash
@@ -82,9 +104,26 @@ uv pip install supabase-mcp-server
 
 `pipx` is recommended because it creates isolated environments for each package.
 
-You can also install the server manually by cloning the repository and running `pipx install -e .` from the root directory.
+#### Option B: Docker Installation (SSE mode)
 
-#### Installing from source
+For containerized deployment with SSE transport:
+
+```bash
+# Clone the repository
+git clone https://github.com/alexander-zuev/supabase-mcp-server.git
+cd supabase-mcp-server
+
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your Supabase configuration
+
+# Start with Docker Compose
+docker-compose up -d
+```
+
+The server will be available at `http://localhost:8000` with SSE transport.
+
+#### Option C: Installing from source
 If you would like to install from source, for example for local development:
 ```bash
 uv venv
@@ -96,10 +135,9 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
-#### Installing via Smithery.ai
+#### Option D: Installing via Smithery.ai
 
-You can find the full instructions on how to use Smithery.ai to connect to this MCP server [here](https://smithery.ai/server/@alexander-zuev/supabase-mcp-server).
-
+You can find the full instructions on how to use Smithery.ai to install this MCP server [here](https://smithery.ai/server/@alexander-zuev/supabase-mcp-server).
 
 ### Step 2. Configuration
 
@@ -119,6 +157,9 @@ The server uses the following environment variables:
 | `SUPABASE_ACCESS_TOKEN` | No | None | Personal access token for Supabase Management API |
 | `SUPABASE_SERVICE_ROLE_KEY` | No | None | Service role key for Auth Admin SDK |
 | `QUERY_API_KEY` | Yes | None | API key from thequery.dev (required for all operations) |
+| `TRANSPORT_MODE` | No | `stdio` | Transport mode: `stdio` or `sse` |
+| `HOST` | No | `0.0.0.0` | Host for SSE server (Docker mode) |
+| `PORT` | No | `8000` | Port for SSE server (Docker mode) |
 
 > **Note**: The default values are configured for local Supabase development. For remote Supabase projects, you must provide your own values for `SUPABASE_PROJECT_REF` and `SUPABASE_DB_PASSWORD`.
 
@@ -366,6 +407,55 @@ If configuration is correct, you should see a green indicator next to the Supaba
 
 ![How successful configuration in Cline looks like](https://github.com/user-attachments/assets/6c4446ad-7a58-44c6-bf12-6c82222bbe59)
 
+### Docker Deployment
+
+For production or containerized environments, use the provided Docker setup:
+
+#### Quick Start
+```bash
+# Clone and configure
+git clone https://github.com/alexander-zuev/supabase-mcp-server.git
+cd supabase-mcp-server
+cp .env.example .env
+
+# Edit .env with your configuration
+nano .env
+
+# Start the server
+docker-compose up -d
+```
+
+#### Docker Configuration
+The Docker setup uses these environment variables:
+
+```bash
+# Required
+QUERY_API_KEY=your-api-key
+SUPABASE_PROJECT_REF=your-project-ref
+SUPABASE_DB_PASSWORD=your-db-password
+
+# Optional
+SUPABASE_REGION=us-east-1
+SUPABASE_ACCESS_TOKEN=your-access-token
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+TRANSPORT_MODE=sse
+HOST=0.0.0.0
+PORT=8000
+```
+
+#### Health Check
+The Docker container includes health checks:
+```bash
+# Check container status
+docker-compose ps
+
+# View logs
+docker-compose logs -f supabase-mcp
+
+# Test SSE endpoint
+curl http://localhost:8000/health
+```
+
 ### Troubleshooting
 
 Here are some tips & tricks that might help you:
@@ -389,6 +479,12 @@ Here are some tips & tricks that might help you:
     # On Windows (PowerShell)
     Get-Content "$env:USERPROFILE\.local\share\supabase-mcp\mcp_server.log"
     ```
+
+#### Docker-Specific Troubleshooting
+
+- **Container won't start**: Check if port 8000 is available
+- **Connection issues**: Verify your `.env` configuration
+- **Health check fails**: Check container logs with `docker-compose logs`
 
 If you are stuck or any of the instructions above are incorrect, please raise an issue.
 
@@ -543,11 +639,12 @@ Safety controls are applied based on risk level:
 Any high-risk operations (be it a postgresql or api request) will be blocked even in `unsafe` mode.
 ![Every high-risk operation is blocked](https://github.com/user-attachments/assets/c0df79c2-a879-4b1f-a39d-250f9965c36a)
 You will have to confirm and approve every high-risk operation explicitly in order for it to be executed.
-![Explicit approval is always required](https://github.com/user-attachments/assets/5cd7a308-ec2a-414e-abe2-ff2f3836dd8b)
-
+![Explicit approval is always required](https://github.com/user-attachments/assets/5cd7a308-ec2a-414e-abe2-ff2f9965dd8b)
 
 ## Changelog
 
+- 🐳 **Dual Transport Support** - ✅ (v0.4.1)
+- 🐳 **Docker Containerization** - ✅ (v0.4.1)
 - 📦 Simplified installation via package manager - ✅ (v0.2.0)
 - 🌎 Support for different Supabase regions - ✅ (v0.2.2)
 - 🎮 Programmatic access to Supabase management API with safety controls - ✅ (v0.3.0)
@@ -560,9 +657,7 @@ You will have to confirm and approve every high-risk operation explicitly in ord
 - ✍️ Improved consistency of migration-related tools for a more organized database vcs ✅ (v0.3.10)
 - 🥳 Query MCP is released (v0.4.0)
 
-
 For a more detailed roadmap, please see this [discussion](https://github.com/alexander-zuev/supabase-mcp-server/discussions/46) on GitHub.
-
 
 ## Star History
 

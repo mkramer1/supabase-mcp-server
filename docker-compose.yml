@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  supabase-mcp-server:
+    build: .
+    ports:
+      - "8123:8123"
+    environment:
+      - QUERY_API_KEY=${QUERY_API_KEY}
+      - SUPABASE_PROJECT_REF=${SUPABASE_PROJECT_REF}
+      - SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - .env
+    command: ["--transport", "sse", "--host", "0.0.0.0", "--port", "8123"]

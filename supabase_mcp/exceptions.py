@@ -81,6 +81,12 @@ class PythonSDKError(Exception):
     pass
 
 
+class ToolNotFoundError(Exception):
+    """Raised when a requested tool is not found."""
+
+    pass
+
+
 class APIResponseError(APIError):
     """Raised when an API response is invalid."""
 
